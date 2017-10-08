@@ -1,0 +1,20 @@
+group 'com.github.nao20010128nao'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'maven'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    jcenter()
+}
+
+dependencies {
+    compile 'com.android.tools.build:gradle-core:2.4.0-alpha7'
+    compile 'com.android.tools.build:gradle-api:2.4.0-alpha7'
+    compile 'org.gradle:gradle-core:3.5'
+    compile localGroovy()
+    testCompile 'junit:junit:4.12'
+}
