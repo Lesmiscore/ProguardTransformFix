@@ -174,7 +174,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             // --- InJars / LibraryJars ---
             List<File> classes = Lists.newArrayList();
             classes.addAll(addInputsToConfiguration(inputs, false));
-            classes.addAll(addInputsToConfiguration(referencedInputs, true));
+            addInputsToConfiguration(referencedInputs, true);
 
             // libraryJars: the runtime jars, with all optional libraries.
             for (File runtimeJar : globalScope.getAndroidBuilder().getBootClasspath(true)) {
@@ -203,7 +203,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             for(File f:classes.stream()
                 .filter(File::isFile)
                 .collect(Collectors.toList())){
-                Files.copy(output.getContentLocation(UUID.randomUUID().toString(), outputTypes, scopes, Format.JAR),f);
+                Files.copy(f,output.getContentLocation(UUID.randomUUID().toString(), outputTypes, scopes, Format.JAR));
             }
         } catch (Exception e) {
             if (e instanceof IOException) {
@@ -265,7 +265,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             filter = ImmutableList.of("**.class");
         }
 
-        if(content.getFile().isFile())
+        if(!content.getFile().isFile())
             inputJar(classPath, content.getFile(), filter);
         else
             libraryJar(content.getFile());
