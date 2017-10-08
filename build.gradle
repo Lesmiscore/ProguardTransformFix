@@ -15,6 +15,7 @@ dependencies {
     compile 'com.android.tools.build:gradle-core:2.4.0-alpha7'
     compile 'com.android.tools.build:gradle-api:2.4.0-alpha7'
     compile 'org.gradle:gradle-core:3.5'
+    compile 'org.gradle:gradle-base-services-groovy:3.5'
     compile localGroovy()
     testCompile 'junit:junit:4.12'
 }
