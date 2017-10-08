@@ -8,6 +8,7 @@ import com.android.build.gradle.tasks.*;
 import com.android.builder.tasks.*;
 import com.google.common.base.*;
 import com.google.common.collect.*;
+import com.google.common.io.*;
 import com.google.common.util.concurrent.*;
 import proguard.*;
 
@@ -16,6 +17,7 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.*;
+import java.util.zip.*;
 
 import static com.android.builder.model.AndroidProject.*;
 import static com.android.utils.FileUtils.*;
@@ -170,8 +172,9 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             }
 
             // --- InJars / LibraryJars ---
-            addInputsToConfiguration(inputs, false);
-            addInputsToConfiguration(referencedInputs, true);
+            List<File> classes = Lists.newArrayList();
+            classes.addAll(addInputsToConfiguration(inputs, false));
+            classes.addAll(addInputsToConfiguration(referencedInputs, true));
 
             // libraryJars: the runtime jars, with all optional libraries.
             for (File runtimeJar : globalScope.getAndroidBuilder().getBootClasspath(true)) {
@@ -196,6 +199,12 @@ public class FixedProGuardTransform  extends ProGuardTransform {
 
             forceprocessing();
             runProguard();
+
+            for(File f:classes.stream()
+                .filter(File::isFile)
+                .collect(Collectors.toList())){
+                Files.copy(output.getContentLocation(UUID.randomUUID().toString(), outputTypes, scopes, Format.JAR),f);
+            }
         } catch (Exception e) {
             if (e instanceof IOException) {
                 throw (IOException) e;
@@ -205,11 +214,12 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         }
     }
 
-    private void addInputsToConfiguration(
+    private List<File> addInputsToConfiguration(
         @NonNull Collection<TransformInput> inputs,
         boolean referencedOnly) {
         ClassPath classPath;
         List<String> baseFilter;
+        List<File> inputFiles = Lists.newArrayList();
 
         if (referencedOnly) {
             classPath = configuration.libraryJars;
@@ -222,12 +232,16 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         for (TransformInput transformInput : inputs) {
             for (JarInput jarInput : transformInput.getJarInputs()) {
                 handleQualifiedContent(classPath, jarInput, baseFilter);
+                inputFiles.add(jarInput.getFile());
             }
 
             for (DirectoryInput directoryInput : transformInput.getDirectoryInputs()) {
                 handleQualifiedContent(classPath, directoryInput, baseFilter);
+                inputFiles.add(directoryInput.getFile());
             }
         }
+
+        return inputFiles;
     }
 
     private void handleQualifiedContent(
@@ -251,7 +265,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             filter = ImmutableList.of("**.class");
         }
 
-        if(baseFilter==null)
+        if(content.getFile().isFile())
             inputJar(classPath, content.getFile(), filter);
         else
             libraryJar(content.getFile());
@@ -265,7 +279,21 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             return testMappingConfiguration.getSingleFile();
         }
 
+
         return null;
+    }
+
+    private void copyFilesFromZip(File zipFile, ZipOutputStream stream){
+        try(ZipInputStream readStream=new ZipInputStream(new FileInputStream(zipFile))){
+            ZipEntry entry;
+            while(null!=(entry=readStream.getNextEntry())){
+                try {
+                    stream.putNextEntry(entry);
+                    ByteStreams.copy(readStream,stream);
+                } catch (IOException e){}
+            }
+        } catch (IOException e) {
+        }
     }
 
 
@@ -273,7 +301,6 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         if (!(task.getTransform() instanceof ProGuardTransform) || task.getTransform() instanceof FixedProGuardTransform) {
             return;
         }
-
         Field variantScopeField=ProGuardTransform.class.getDeclaredField("variantScope");
         variantScopeField.setAccessible(true);
         VariantScope scope= (VariantScope) variantScopeField.get(task.getTransform());
