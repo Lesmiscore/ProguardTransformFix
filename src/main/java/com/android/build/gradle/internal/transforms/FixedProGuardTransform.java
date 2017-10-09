@@ -268,7 +268,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         if(!content.getFile().isFile())
             inputJar(classPath, content.getFile(), filter);
         else
-            libraryJar(content.getFile());
+            inputJar(configuration.libraryJars, content.getFile(), filter);
     }
 
     @Nullable
@@ -298,12 +298,13 @@ public class FixedProGuardTransform  extends ProGuardTransform {
 
 
     public static void injectProGuardTransform(TransformTask task) throws Throwable{
-        if (!(task.getTransform() instanceof ProGuardTransform) || task.getTransform() instanceof FixedProGuardTransform) {
+        Transform transform=task.getTransform();
+        if (!(transform instanceof ProGuardTransform) || transform instanceof FixedProGuardTransform) {
             return;
         }
         Field variantScopeField=ProGuardTransform.class.getDeclaredField("variantScope");
         variantScopeField.setAccessible(true);
-        VariantScope scope= (VariantScope) variantScopeField.get(task.getTransform());
+        VariantScope scope= (VariantScope) variantScopeField.get(transform);
 
         FixedProGuardTransform fixedTransform=new FixedProGuardTransform(scope);
         /* Because transform field is not final, this code could run well */
