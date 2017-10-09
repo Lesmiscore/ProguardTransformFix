@@ -7,7 +7,7 @@ There's no grantee to use this.
 ## Usage
 Add following to root `build.gradle` file.
 
-```
+```groovy
 buildscript {
     repositories {
         jcenter()
@@ -23,7 +23,7 @@ buildscript {
 
 Then, append following to root `build.gradle` file.
 
-```
+```groovy
 import com.android.build.gradle.internal.transforms.*
 import com.android.build.gradle.internal.pipeline.*
 
