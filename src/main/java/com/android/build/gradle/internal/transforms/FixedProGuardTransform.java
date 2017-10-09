@@ -200,6 +200,8 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             for (File configFile : getAllConfigurationFiles()) {
                 applyConfigurationFile(configFile);
             }
+            keep("class **.R { *; }");
+            keep("class **.R$** { *; }");
 
             configuration.printMapping = tempMappingFile;
             configuration.dump = dump;
