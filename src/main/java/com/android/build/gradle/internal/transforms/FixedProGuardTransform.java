@@ -15,6 +15,7 @@ import proguard.*;
 import java.io.*;
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.stream.*;
 import java.util.zip.*;
@@ -225,6 +226,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
                 .filter(a->a.getType()==List.class)
                 .map(a->getField(a,configuration))
                 .map(a->(List)a)
+                .filter(Objects::nonNull)
                 .forEach(List::clear);
 
             GlobalScope globalScope = variantScope.getGlobalScope();
