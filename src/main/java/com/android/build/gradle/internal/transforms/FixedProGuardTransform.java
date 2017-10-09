@@ -302,11 +302,14 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         if (!(transform instanceof ProGuardTransform) || transform instanceof FixedProGuardTransform) {
             return;
         }
+        ProGuardTransform pgt=(ProGuardTransform)transform;
+
         Field variantScopeField=ProGuardTransform.class.getDeclaredField("variantScope");
         variantScopeField.setAccessible(true);
-        VariantScope scope= (VariantScope) variantScopeField.get(transform);
+        VariantScope scope= (VariantScope) variantScopeField.get(pgt);
 
         FixedProGuardTransform fixedTransform=new FixedProGuardTransform(scope);
+        fixedTransform.setConfigurationFiles(pgt::getAllConfigurationFiles);
         /* Because transform field is not final, this code could run well */
         Field transformField=TransformTask.class.getDeclaredField("transform");
         transformField.setAccessible(true);
