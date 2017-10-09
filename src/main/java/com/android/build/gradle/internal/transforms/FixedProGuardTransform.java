@@ -224,11 +224,11 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         try {
             /* Clear everything here */
             Arrays.stream(Configuration.class.getDeclaredFields())
-                .filter(a->a.getType()==List.class)
+                .filter(a->Collection.class.isAssignableFrom(a.getType()))
                 .map(a->getField(a,configuration))
-                .map(a->(List)a)
+                .map(a->(Collection)a)
                 .filter(Objects::nonNull)
-                .forEach(List::clear);
+                .forEach(Collection::clear);
 
             GlobalScope globalScope = variantScope.getGlobalScope();
 
