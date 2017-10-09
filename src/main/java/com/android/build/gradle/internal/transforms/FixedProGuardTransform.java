@@ -38,9 +38,12 @@ public class FixedProGuardTransform  extends ProGuardTransform {
     private File testedMappingFile = null;
     private org.gradle.api.artifacts.Configuration testMappingConfiguration = null;
 
-    public FixedProGuardTransform(@NonNull VariantScope variantScope) {
+    private final File cacheDir;
+
+    public FixedProGuardTransform(@NonNull VariantScope variantScope, @NonNull File cacheDir) {
         super(variantScope);
         this.variantScope = variantScope;
+        this.cacheDir = cacheDir;
 
         GlobalScope globalScope = variantScope.getGlobalScope();
         proguardOut = new File(Joiner.on(File.separatorChar).join(
@@ -161,6 +164,11 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         Set<QualifiedContent.Scope> scopes = getScopes();
         File outFile = output.getContentLocation("main", outputTypes, scopes, Format.JAR);
         mkdirs(outFile.getParentFile());
+        File tempOutFile = new File(cacheDir,"temp.jar");
+        mkdirs(tempOutFile.getParentFile());
+        File tempMappingFile = new File(cacheDir,"mapping.txt");
+
+        List<File> libraries;
 
         try {
             GlobalScope globalScope = variantScope.getGlobalScope();
@@ -174,6 +182,65 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             // --- InJars / LibraryJars ---
             List<File> classes = Lists.newArrayList();
             classes.addAll(addInputsToConfiguration(inputs, false));
+            addInputsToConfiguration(referencedInputs, true);
+
+            // libraryJars: the runtime jars, with all optional libraries.
+            for (File runtimeJar : globalScope.getAndroidBuilder().getBootClasspath(true)) {
+                libraryJar(runtimeJar);
+            }
+
+            // --- Out files ---
+            outJar(tempOutFile);
+
+            // proguard doesn't verify that the seed/mapping/usage folders exist and will fail
+            // if they don't so create them.
+            mkdirs(proguardOut);
+
+            for (File configFile : getAllConfigurationFiles()) {
+                applyConfigurationFile(configFile);
+            }
+
+            configuration.printMapping = tempMappingFile;
+            configuration.dump = dump;
+            configuration.printSeeds = printSeeds;
+            configuration.printUsage = printUsage;
+
+            forceprocessing();
+            runProguard();
+
+            libraries=classes.stream()
+                .filter(File::isFile)
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
+
+            throw new IOException(e);
+        }
+
+        try {
+            /* Clear everything here */
+            Arrays.stream(Configuration.class.getDeclaredFields())
+                .filter(a->a.getType()==List.class)
+                .map(a->getField(a,configuration))
+                .map(a->(List)a)
+                .forEach(List::clear);
+
+            GlobalScope globalScope = variantScope.getGlobalScope();
+
+            // set the mapping file if there is one.
+            File testedMappingFile = computeMappingFile();
+            if (testedMappingFile != null) {
+                applyMapping(testedMappingFile);
+            }
+            applyMapping(tempMappingFile);
+
+            // --- InJars / LibraryJars ---
+            inJar(tempOutFile);
+            for(File lib:libraries){
+                inJar(lib);
+            }
             addInputsToConfiguration(referencedInputs, true);
 
             // libraryJars: the runtime jars, with all optional libraries.
@@ -197,14 +264,11 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             configuration.printSeeds = printSeeds;
             configuration.printUsage = printUsage;
 
+            /* We can't do that here */
+            dontoptimize();
+
             forceprocessing();
             runProguard();
-
-            for(File f:classes.stream()
-                .filter(File::isFile)
-                .collect(Collectors.toList())){
-                Files.copy(f,output.getContentLocation(UUID.randomUUID().toString(), outputTypes, scopes, Format.JAR));
-            }
         } catch (Exception e) {
             if (e instanceof IOException) {
                 throw (IOException) e;
@@ -296,6 +360,13 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         }
     }
 
+    private Object getField(Field f,Object o){
+        try {
+            return f.get(o);
+        } catch (IllegalAccessException e) {
+            return null;
+        }
+    }
 
     public static void injectProGuardTransform(TransformTask task) throws Throwable{
         Transform transform=task.getTransform();
@@ -308,7 +379,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         variantScopeField.setAccessible(true);
         VariantScope scope= (VariantScope) variantScopeField.get(pgt);
 
-        FixedProGuardTransform fixedTransform=new FixedProGuardTransform(scope);
+        FixedProGuardTransform fixedTransform=new FixedProGuardTransform(scope,task.getTemporaryDir());
         fixedTransform.setConfigurationFiles(pgt::getAllConfigurationFiles);
         /* Because transform field is not final, this code could run well */
         Field transformField=TransformTask.class.getDeclaredField("transform");
