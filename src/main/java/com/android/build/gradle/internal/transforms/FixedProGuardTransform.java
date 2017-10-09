@@ -211,6 +211,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
 
             libraries=classes.stream()
                 .filter(File::isFile)
+                .filter(f->f!=tempOutFile)
                 .collect(Collectors.toList());
         } catch (Exception e) {
             if (e instanceof IOException) {
