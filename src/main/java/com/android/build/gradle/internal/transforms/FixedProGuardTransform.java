@@ -211,7 +211,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
 
             libraries=classes.stream()
                 .filter(File::isFile)
-                .filter(f->f!=tempOutFile)
+                .filter(f-> !f.equals(tempOutFile))
                 .collect(Collectors.toList());
         } catch (Exception e) {
             if (e instanceof IOException) {
@@ -229,6 +229,12 @@ public class FixedProGuardTransform  extends ProGuardTransform {
                 .map(a->(Collection)a)
                 .filter(Objects::nonNull)
                 .forEach(Collection::clear);
+            Arrays.stream(Configuration.class.getDeclaredFields())
+                .filter(a->ClassPath.class==a.getType())
+                .map(a->getField(a,configuration))
+                .map(a->(ClassPath)a)
+                .filter(Objects::nonNull)
+                .forEach(ClassPath::clear);
 
             GlobalScope globalScope = variantScope.getGlobalScope();
 
