@@ -169,7 +169,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         mkdirs(tempOutFile.getParentFile());
         File tempMappingFile = new File(cacheDir,"mapping.txt");
 
-        List<File> libraries;
+        List<QualifiedContent> libraries;
 
         try {
             GlobalScope globalScope = variantScope.getGlobalScope();
@@ -181,7 +181,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             }
 
             // --- InJars / LibraryJars ---
-            List<File> classes = Lists.newArrayList();
+            List<QualifiedContent> classes = Lists.newArrayList();
             classes.addAll(addInputsToConfiguration(inputs, false));
             addInputsToConfiguration(referencedInputs, true);
 
@@ -212,8 +212,8 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             runProguard();
 
             libraries=classes.stream()
-                .filter(File::isFile)
-                .filter(f-> !f.equals(tempOutFile))
+                .filter(a->a.getFile().isFile())
+                .filter(f-> !f.getFile().equals(tempOutFile))
                 .collect(Collectors.toList());
         } catch (Exception e) {
             if (e instanceof IOException) {
@@ -249,8 +249,8 @@ public class FixedProGuardTransform  extends ProGuardTransform {
 
             // --- InJars / LibraryJars ---
             inJar(tempOutFile);
-            for(File lib:libraries){
-                inJar(lib);
+            for(QualifiedContent lib:libraries) {
+                handleQualifiedContentBase(configuration.programJars,lib,null);
             }
             addInputsToConfiguration(referencedInputs, true);
 
@@ -289,12 +289,12 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         }
     }
 
-    private List<File> addInputsToConfiguration(
+    private List<QualifiedContent> addInputsToConfiguration(
         @NonNull Collection<TransformInput> inputs,
         boolean referencedOnly) {
         ClassPath classPath;
         List<String> baseFilter;
-        List<File> inputFiles = Lists.newArrayList();
+        List<QualifiedContent> inputFiles = Lists.newArrayList();
 
         if (referencedOnly) {
             classPath = configuration.libraryJars;
@@ -307,12 +307,12 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         for (TransformInput transformInput : inputs) {
             for (JarInput jarInput : transformInput.getJarInputs()) {
                 handleQualifiedContent(classPath, jarInput, baseFilter);
-                inputFiles.add(jarInput.getFile());
+                inputFiles.add(jarInput);
             }
 
             for (DirectoryInput directoryInput : transformInput.getDirectoryInputs()) {
                 handleQualifiedContent(classPath, directoryInput, baseFilter);
-                inputFiles.add(directoryInput.getFile());
+                inputFiles.add(directoryInput);
             }
         }
 
@@ -340,10 +340,34 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             filter = ImmutableList.of("**.class");
         }
 
-        if(!content.getFile().isFile())
+        if(content.getFile().isDirectory())
             inputJar(classPath, content.getFile(), filter);
         else
             inputJar(configuration.libraryJars, content.getFile(), filter);
+    }
+
+    private void handleQualifiedContentBase(
+        @NonNull ClassPath classPath,
+        @NonNull QualifiedContent content,
+        @Nullable List<String> baseFilter) {
+        List<String> filter = baseFilter;
+
+        if (!content.getContentTypes().contains(QualifiedContent.DefaultContentType.CLASSES)) {
+            // if the content is not meant to contain classes, we ignore them
+            // in case they are present.
+            ImmutableList.Builder<String> builder = ImmutableList.builder();
+            if (filter != null) {
+                builder.addAll(filter);
+            }
+            builder.add("!**.class");
+            filter = builder.build();
+        } else if (!content.getContentTypes().contains(QualifiedContent.DefaultContentType.RESOURCES)) {
+            // if the content is not meant to contain resources, we ignore them
+            // in case they are present (by accepting only classes.)
+            filter = ImmutableList.of("**.class");
+        }
+
+        inputJar(classPath, content.getFile(), filter);
     }
 
     @Nullable
