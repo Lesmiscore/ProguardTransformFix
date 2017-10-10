@@ -8,7 +8,6 @@ import com.android.build.gradle.tasks.*;
 import com.android.builder.tasks.*;
 import com.google.common.base.*;
 import com.google.common.collect.*;
-import com.google.common.io.*;
 import com.google.common.util.concurrent.*;
 import proguard.*;
 
