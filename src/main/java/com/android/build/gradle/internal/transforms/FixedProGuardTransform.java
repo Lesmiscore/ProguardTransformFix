@@ -40,11 +40,13 @@ public class FixedProGuardTransform  extends ProGuardTransform {
     private org.gradle.api.artifacts.Configuration testMappingConfiguration = null;
 
     private final File cacheDir;
+    private final List<String> librariesWhichClassContains;
 
-    public FixedProGuardTransform(@NonNull VariantScope variantScope, @NonNull File cacheDir) {
+    public FixedProGuardTransform(@NonNull VariantScope variantScope, @NonNull File cacheDir, @Nullable List<String> librariesWhichClassContains) {
         super(variantScope);
         this.variantScope = variantScope;
         this.cacheDir = cacheDir;
+        this.librariesWhichClassContains=librariesWhichClassContains;
 
         GlobalScope globalScope = variantScope.getGlobalScope();
         proguardOut = new File(Joiner.on(File.separatorChar).join(
@@ -306,20 +308,20 @@ public class FixedProGuardTransform  extends ProGuardTransform {
 
         for (TransformInput transformInput : inputs) {
             for (JarInput jarInput : transformInput.getJarInputs()) {
-                handleQualifiedContent(classPath, jarInput, baseFilter);
-                inputFiles.add(jarInput);
+                if(handleQualifiedContent(classPath, jarInput, baseFilter))
+                    inputFiles.add(jarInput);
             }
 
             for (DirectoryInput directoryInput : transformInput.getDirectoryInputs()) {
-                handleQualifiedContent(classPath, directoryInput, baseFilter);
-                inputFiles.add(directoryInput);
+                if(handleQualifiedContent(classPath, directoryInput, baseFilter))
+                    inputFiles.add(directoryInput);
             }
         }
 
         return inputFiles;
     }
 
-    private void handleQualifiedContent(
+    private boolean handleQualifiedContent(
         @NonNull ClassPath classPath,
         @NonNull QualifiedContent content,
         @Nullable List<String> baseFilter) {
@@ -340,10 +342,13 @@ public class FixedProGuardTransform  extends ProGuardTransform {
             filter = ImmutableList.of("**.class");
         }
 
-        if(content.getFile().isDirectory())
+        if (content.getFile().isDirectory() || containsOneOfClasses(content.getFile())) {
             inputJar(classPath, content.getFile(), filter);
-        else
+            return false;
+        } else {
             inputJar(configuration.libraryJars, content.getFile(), filter);
+            return true;
+        }
     }
 
     private void handleQualifiedContentBase(
@@ -390,7 +395,34 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         }
     }
 
+    private boolean containsOneOfClasses(File jarOrDir){
+        if(jarOrDir.isDirectory()){
+            for(String fqdn:librariesWhichClassContains){
+                String relPath=fqdn.replace('.','/')+".class";
+                if(new File(jarOrDir,relPath).exists()){
+                    return true;
+                }
+            }
+        }else if(jarOrDir.isFile()){
+            try(ZipFile zf=new ZipFile(jarOrDir)){
+                return Collections.list(zf.entries()).stream()
+                    .map(ZipEntry::getName)
+                    .filter(a->a.endsWith(".class"))
+                    .map(a->a.substring(0,a.length()-6))
+                    .map(a->a.replace('/','.'))
+                    .anyMatch(librariesWhichClassContains::contains);
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
     public static void injectProGuardTransform(TransformTask task) throws Throwable{
+        injectProGuardTransform(task,null);
+    }
+
+    public static void injectProGuardTransform(TransformTask task,List<String> librariesWhichClassContains) throws Throwable{
         Transform transform=task.getTransform();
         if (!(transform instanceof ProGuardTransform) || transform instanceof FixedProGuardTransform) {
             return;
@@ -401,7 +433,7 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         variantScopeField.setAccessible(true);
         VariantScope scope= (VariantScope) variantScopeField.get(pgt);
 
-        FixedProGuardTransform fixedTransform=new FixedProGuardTransform(scope,task.getTemporaryDir());
+        FixedProGuardTransform fixedTransform=new FixedProGuardTransform(scope,task.getTemporaryDir(),librariesWhichClassContains);
         fixedTransform.setConfigurationFiles(pgt::getAllConfigurationFiles);
         /* Because transform field is not final, this code could run well */
         Field transformField=TransformTask.class.getDeclaredField("transform");
