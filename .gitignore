@@ -8,5 +8,6 @@ build/*
 */*.iml
 out/
 */out/
+*/build/*
 
 !*.java
