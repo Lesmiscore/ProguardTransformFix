@@ -45,7 +45,10 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         super(variantScope);
         this.variantScope = variantScope;
         this.cacheDir = cacheDir;
-        this.librariesWhichClassContains=librariesWhichClassContains;
+        this.librariesWhichClassContains=
+            librariesWhichClassContains==null?
+                Collections.emptyList():
+                librariesWhichClassContains;
 
         GlobalScope globalScope = variantScope.getGlobalScope();
         proguardOut = new File(Joiner.on(File.separatorChar).join(
