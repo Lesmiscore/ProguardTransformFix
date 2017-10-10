@@ -1,17 +1,11 @@
 group 'com.github.nao20010128nao'
 version '1.0-SNAPSHOT'
 
+apply plugin: 'groovy'
 apply plugin: 'java'
 apply plugin: 'maven'
 
 sourceCompatibility = 1.8
-
-allprojects {
-    repositories {
-        mavenCentral()
-        jcenter()
-    }
-}
 
 dependencies {
     compileOnly 'com.android.tools.build:gradle-core:2.4.0-alpha7'
@@ -19,5 +13,6 @@ dependencies {
     compileOnly 'org.gradle:gradle-core:3.5'
     compileOnly 'org.gradle:gradle-base-services-groovy:3.5'
     compileOnly localGroovy()
-    testCompile 'junit:junit:4.12'
+    compile rootProject
+    testCompile group: 'junit', name: 'junit', version: '4.12'
 }
