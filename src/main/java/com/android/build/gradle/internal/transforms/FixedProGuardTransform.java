@@ -382,19 +382,6 @@ public class FixedProGuardTransform  extends ProGuardTransform {
         return null;
     }
 
-    private void copyFilesFromZip(File zipFile, ZipOutputStream stream){
-        try(ZipInputStream readStream=new ZipInputStream(new FileInputStream(zipFile))){
-            ZipEntry entry;
-            while(null!=(entry=readStream.getNextEntry())){
-                try {
-                    stream.putNextEntry(entry);
-                    ByteStreams.copy(readStream,stream);
-                } catch (IOException e){}
-            }
-        } catch (IOException e) {
-        }
-    }
-
     private Object getField(Field f,Object o){
         try {
             return f.get(o);
